@@ -141,7 +141,7 @@ func TestValidateUserConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateUserConfig(tt.input)
+			err := ValidateUserConfig(&tt.input)
 			if tt.wantErr {
 				assert.ErrorContains(t, err, tt.errContains)
 				return
@@ -185,7 +185,7 @@ func TestValidateSystemConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateSystemConfig(tt.input)
+			err := ValidateSystemConfig(&tt.input)
 			if tt.wantErr {
 				assert.ErrorContains(t, err, tt.errContains)
 				return
