@@ -1,6 +1,6 @@
 # Discord Poller — Implementation Plan
 
-Status: planning only; implementation has not started. Remaining decisions are listed below.
+Status: planning complete; implementation ready to start.
 
 ## Scope
 
@@ -8,7 +8,7 @@ Build a Go command-line program that runs once, posts one native Discord poll us
 
 Configuration, CLI help, errors, logs, and operational documentation are English. Poll question and answer text are supplied verbatim by the administrator. No locale engine or translation support is required.
 
-Out of scope: bots, extra message content, mentions, webhook username/avatar overrides, and additional placeholders at initial release.
+Out of scope: bots, extra message content, mentions, webhook username/avatar overrides, additional placeholders, and duplicate prevention via local state at initial release.
 
 ## Configuration proposal
 
@@ -18,7 +18,7 @@ Use a strict YAML configuration file. Reject unknown keys to catch mistakes. Rea
 webhook_url_env: DISCORD_WEBHOOK_URL
 
 target:
-  timezone: Europe/Zurich  # Example only; timezone still needs confirmation.
+  timezone: Europe/Berlin
   weekday: Thursday
   time: "18:00"
   same_day_threshold: 3h
@@ -35,28 +35,30 @@ poll:
     - text: "Maybe"
 ```
 
-- Target weekday accepts full English weekday names.
-- Target time uses local 24-hour `HH:MM` syntax.
-- Threshold is a Go duration string, defaults to `3h`, and must be at least `1h`. Proposed upper bound: less than one week; larger thresholds make same-day selection impossible or confusing.
-- Timezone is an explicit IANA timezone; do not silently inherit the server timezone.
-- Date format uses Go reference-time layouts, e.g. `02.01.2006`, `2006-01-02`, or `Monday, 02 January 2006`. Go's built-in weekday/month names are English; localized literal words and numeric layouts can be supplied, but translated dynamic names are out of scope.
-- Answer text is required. Emoji is optional. Proposed support: Unicode emoji and custom Discord emoji notation (`<:name:id>` and `<a:name:id>`), mapped to the appropriate API fields. Do not equate one emoji with one Unicode code point: combined emoji sequences exist.
-- `allow_multiselect` is configurable and defaults to false.
+- **Timezone**: IANA timezone string (e.g. `Europe/Berlin`). No default; must be explicitly configured. Required setting.
+- **Target weekday**: Full English weekday name. Required setting.
+- **Target time**: Local 24-hour `HH:MM` syntax. Required setting.
+- **Same-day threshold**: Go duration string (e.g. `3h`, `2h30m`). Minimum `1h`. Required setting.
+- **Date format**: Go reference-time layout (e.g. `02.01.2006`, `2006-01-02`, `Monday, 02 January 2006`). Use numeric output only; English dynamic names (Monday, January) are acceptable. Required setting.
+- **Question**: Template string supporting `{end_date}` placeholder. Required setting.
+- **Answers**: At least one answer. Text is required; emoji is optional. Required setting (non-empty array).
+- **Multiselect**: Boolean. Required setting.
 
-## Target selection
+Answer text is required. Emoji is optional. Proposed support: Unicode emoji and custom Discord emoji notation (`<:name:id>` and `<a:name:id>`), mapped to the appropriate API fields. Do not equate one emoji with one Unicode code point: combined emoji sequences exist.
+
+## Target selection logic
 
 Capture the actual execution instant once and convert it into the configured timezone. Inject this clock in tests.
 
 1. Find the target weekday on or after the local execution date.
 2. Construct the configured wall-clock deadline on that calendar date.
 3. If today is the target weekday, select today only when:
-   `execution_time < deadline - same_day_threshold`.
+   `execution_time < (deadline - same_day_threshold)`.
+   That is, strictly before the cutoff time.
 4. Otherwise, select that weekday in the following calendar week.
 5. On other weekdays, select the next occurrence of the configured weekday.
 
-This interprets the user's explicit example as requiring *more than* the threshold of remaining time, not running inside the final threshold window. At the exact cutoff, choose the following week; this boundary remains subject to confirmation.
-
-With Thursday, 18:00, and a 3h threshold:
+With Thursday, 18:00, and a 3h threshold (cutoff at 15:00):
 
 | Execution (target timezone) | Selected deadline |
 | --- | --- |
@@ -68,7 +70,7 @@ With Thursday, 18:00, and a 3h threshold:
 
 Use local calendar arithmetic, not adding a fixed 168 hours, to preserve the configured wall-clock time across daylight-saving changes. Compute elapsed durations between absolute instants after constructing the local deadline.
 
-Proposed DST policy: reject ambiguous or nonexistent target wall-clock deadlines with a clear English error rather than silently choosing or normalizing an instant. The current 18:00 value is normally unaffected, but the configurable setting needs a documented policy.
+**DST policy**: Reject ambiguous or nonexistent target wall-clock deadlines with a clear English error rather than silently choosing or normalizing an instant. The current 18:00 value is normally unaffected, but the configurable setting needs this documented policy.
 
 ## Poll duration and expiry window
 
@@ -82,14 +84,14 @@ The nominal expiry `S + duration_hours * 1 hour` then satisfies:
 
 For an 18:00 target, nominal expiry is strictly after 17:00 and no later than 18:00. An exact whole-hour difference can end exactly at 18:00; do not subtract an unconditional extra hour.
 
-Important limitation: Discord starts the duration when it creates the poll, not at the local calculation instant. Transport/server delay can move actual expiry slightly later, especially when nominal expiry equals the deadline. A webhook-only program cannot guarantee this strict window under arbitrary delay. A fixed safety margin alone also cannot guarantee both window boundaries for every execution phase.
+**Important limitation**: Discord starts the duration when it creates the poll, not at the local calculation instant. Transport/server delay can move actual expiry slightly later, especially when nominal expiry equals the deadline.
 
-Proposed operational behavior:
+**Operational behavior**:
 - Recalculate duration immediately before each permitted send attempt, keeping the chosen target date fixed for that invocation.
-- Abort if the remaining duration falls below one hour or the supported range; never silently change to a different target during retries.
+- Abort if the remaining duration falls below one hour or exceeds the supported range (1–768 hours); never silently change to a different target during retries.
 - Use `wait=true` to obtain the created message and inspect returned `poll.expiry` when present.
-- Log the actual returned expiry and warn/report a window violation. Do not repost to correct it, since that would create duplicates.
-- Ask the user whether best-effort expiry with explicit reporting is acceptable.
+- Log the actual returned expiry and report any deviation from the intended window. Do not repost to correct it, since that would create duplicates.
+- Best-effort expiry with explicit reporting is the acceptable approach.
 
 `{end_date}` refers to the selected configured deadline in the configured timezone, not Discord's rounded actual expiry. Format it with `poll.date_format` before rendering the question.
 
@@ -132,11 +134,48 @@ Log in English to stdout/stderr for collection by the service manager. Include s
 
 ## systemd deployment
 
-Provide a oneshot service and editable weekly timer example. The service executes the binary once and does not contain an internal scheduler. The administrator chooses timer weekday/time independently of the configured target weekday/time.
+### Service
 
-Proposed deployment includes a dedicated unprivileged account, read-only configuration, separately stored webhook environment secret, service hardening compatible with outbound networking, and installation/verification instructions.
+Run the program as a oneshot service with an unprivileged account. The service executes the binary once and does not contain an internal scheduler.
 
-No automatic service restart on ambiguous delivery failures. Timer catch-up behavior (`Persistent=`) and duplicate protection remain open decisions. If catch-up is enabled, calculate from the actual execution time, not the originally missed timer timestamp.
+### Timer
+
+Run weekly on **Thursday at 18:10** (Berlin time, daylight-saving-aware). This gives approximately one week for the poll to exist if everything succeeds. Missed runs are **not** caught up (`Persistent=false`).
+
+Rationale:
+- Thursday 18:10 is 10 minutes after the default configured target deadline (18:00), giving a small operational buffer.
+- The poll is then available for ~7 days until the next Thursday 18:00 deadline.
+- If the timer is missed (e.g., system downtime), the next scheduled run (following Thursday) is used; stale deadlines are not retroactively executed.
+
+Example systemd timer:
+```ini
+[Unit]
+Description=Weekly Discord Poller Timer
+Documentation=file:///etc/discord-poller/README.md
+
+[Timer]
+OnCalendar=Thu *-*-* 18:10:00
+Persistent=false
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target
+```
+
+Provide a oneshot service unit, example timer configuration, a dedicated unprivileged account, read-only configuration directory, separately stored webhook environment secret (e.g., in a systemd EnvironmentFile), service hardening compatible with outbound networking, and installation/verification instructions.
+
+## Duplicate handling
+
+**No local state tracking** at this release. Each invocation is independent and stateless:
+- Manual invocation and scheduled timer on the same target deadline will create two separate polls.
+- Repeated invocations do not suppress or detect duplicates.
+
+This is acceptable because:
+- Missed or concurrent executions are rare in typical deployments.
+- Local state cannot guarantee exactly-once delivery after ambiguous network failures anyway.
+- Stateless operation is simpler and avoids complex edge cases.
+
+Future releases may add optional idempotency tokens or local state if required.
 
 ## Tests and acceptance criteria
 
@@ -155,7 +194,7 @@ No automatic service restart on ambiguous delivery failures. Timer catch-up beha
 
 ## Delivery phases
 
-1. Save and confirm this plan and outstanding decisions.
+1. ✅ Planning complete with all decisions clarified.
 2. Implement Go CLI, scheduling/config/template logic, payload construction, and unit tests.
 3. Implement webhook client and HTTP tests.
 4. Add example configuration, systemd units, build/install instructions, and CI.
@@ -163,19 +202,11 @@ No automatic service restart on ambiguous delivery failures. Timer catch-up beha
 
 Implementation should be submitted for review only after the user asks to start it.
 
-## Open questions
-
-1. Which IANA timezone should be used? `Europe/Zurich` above is an unconfirmed example.
-2. Confirm strict cutoff: at exactly 15:00 with Thursday 18:00 and threshold 3h, choose the following Thursday?
-3. Is best-effort actual expiry acceptable given Discord's server-side start time and network delay, with returned expiry checked and deviations reported?
-4. Which weekday/time should the example weekly systemd timer use? Should missed runs be caught up after downtime?
-5. Should repeated successful invocations for the same target deadline be suppressed using local state, or should each invocation create a poll? Local state cannot provide exactly-once delivery after an ambiguous network failure.
-6. Are native Go date layouts acceptable? They permit custom numeric/literal formatting but not translated dynamic weekday/month names without additional support.
-
 ## Primary references
 
 - Discord poll resource: https://docs.discord.com/developers/resources/poll
 - Discord execute webhook: https://docs.discord.com/developers/resources/webhook#execute-webhook
 - Go time formatting and timezones: https://pkg.go.dev/time
+- systemd timer: https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html
 
 Recheck current API constraints and deployment directives during implementation.
