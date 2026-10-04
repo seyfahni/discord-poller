@@ -140,12 +140,13 @@ Run the program as a oneshot service with an unprivileged account. The service e
 
 ### Timer
 
-Run weekly on **Thursday at 18:10** (Berlin time, daylight-saving-aware). This gives approximately one week for the poll to exist if everything succeeds. Missed runs are **not** caught up (`Persistent=false`).
+Run weekly on **Thursday at 18:10** (Berlin time, daylight-saving-aware). This gives approximately one week for the poll to exist if everything succeeds. Missed runs are **caught up** (`Persistent=true`).
 
 Rationale:
 - Thursday 18:10 is 10 minutes after the default configured target deadline (18:00), giving a small operational buffer.
 - The poll is then available for ~7 days until the next Thursday 18:00 deadline.
-- If the timer is missed (e.g., system downtime), the next scheduled run (following Thursday) is used; stale deadlines are not retroactively executed.
+- If the server is offline and the timer is missed, systemd triggers one catch-up execution when the timer becomes active again. The program calculates its target from the actual execution time (not retroactively), so no duplicate polls for skipped weeks are created.
+- If the server is offline for multiple weeks, only one catch-up run executes.
 
 Example systemd timer:
 ```ini
@@ -155,7 +156,7 @@ Documentation=file:///etc/discord-poller/README.md
 
 [Timer]
 OnCalendar=Thu *-*-* 18:10:00
-Persistent=false
+Persistent=true
 AccuracySec=1min
 
 [Install]
@@ -174,6 +175,7 @@ This is acceptable because:
 - Missed or concurrent executions are rare in typical deployments.
 - Local state cannot guarantee exactly-once delivery after ambiguous network failures anyway.
 - Stateless operation is simpler and avoids complex edge cases.
+- systemd `Persistent=true` ensures a single catch-up execution after downtime, not replayed retries.
 
 Future releases may add optional idempotency tokens or local state if required.
 
