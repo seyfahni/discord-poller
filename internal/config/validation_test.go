@@ -96,6 +96,7 @@ func TestValidateUserConfig(t *testing.T) {
 		{name: "date format dotted", input: func() UserConfig { c := validUserConfig(); c.Poll.DateFormat = "02.01.2006"; return c }()},
 		{name: "date format ISO", input: func() UserConfig { c := validUserConfig(); c.Poll.DateFormat = "2006-01-02"; return c }()},
 		{name: "date format long weekday", input: func() UserConfig { c := validUserConfig(); c.Poll.DateFormat = "Monday, 02 January 2006"; return c }()},
+		{name: "date format month", input: func() UserConfig { c := validUserConfig(); c.Poll.DateFormat = "Jan"; return c }()},
 		{name: "date format empty", input: func() UserConfig { c := validUserConfig(); c.Poll.DateFormat = ""; return c }(), wantErr: true, errContains: "poll.date_format"},
 		{name: "date format malformed Go layout", input: func() UserConfig { c := validUserConfig(); c.Poll.DateFormat = "DD.MM.YYYY"; return c }(), wantErr: true, errContains: "poll.date_format"},
 

@@ -120,11 +120,23 @@ func validateDateFormat(format string) error {
 	if strings.TrimSpace(format) == "" {
 		return fmt.Errorf("must not be empty")
 	}
-	formatted := time.Now().Format(format)
-	if _, err := time.Parse(format, formatted); err != nil {
-		return fmt.Errorf("must be a valid Go time layout: %w", err)
+	samples := []time.Time{
+		time.Now(),
+		time.Date(2006, time.January, 2, 3, 4, 5, 0, time.UTC),
+		time.Date(2007, time.June, 15, 16, 17, 18, 0, time.UTC),
+		time.Date(2008, time.November, 21, 22, 23, 24, 0, time.UTC),
 	}
-	if formatted == format {
+	hasTimeField := false
+	for _, sample := range samples {
+		formatted := sample.Format(format)
+		if _, err := time.Parse(format, formatted); err != nil {
+			return fmt.Errorf("must be a valid Go time layout: %w", err)
+		}
+		if formatted != format {
+			hasTimeField = true
+		}
+	}
+	if !hasTimeField {
 		return fmt.Errorf("must be a valid Go time layout containing date or time fields")
 	}
 	return nil
