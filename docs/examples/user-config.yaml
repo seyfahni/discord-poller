@@ -1,0 +1,18 @@
+webhook_url_env: DISCORD_WEBHOOK_URL
+
+target:
+  timezone: Europe/Berlin
+  weekday: Thursday
+  time: "18:00"
+  same_day_threshold: 3h
+
+poll:
+  question: "Who's in on {end_date}?"
+  date_format: "02.01.2006"
+  allow_multiselect: false
+  answers:
+    - text: "I'm in"
+      emoji: "✅"
+    - text: "Can't make it"
+      emoji: "❌"
+    - text: "Maybe"
