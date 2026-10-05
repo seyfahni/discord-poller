@@ -3,8 +3,13 @@
 Status: implementation in progress.
 
 Completed: configuration models, validation and strict YAML loaders;
-scheduling deadline selection and duration calculations.
-Next: template rendering.
+scheduling deadline selection and duration calculations; template rendering in
+question and answer text.
+
+For templates, `{{` and `}}` produce literal braces. Reject unmatched braces
+and unsupported placeholders. Render `{end_date}` in both question and answer
+text; keep Discord-specific rendered-length validation in the payload layer.
+Next: CLI composition and dry-run behavior.
 
 ## Overview
 
@@ -206,10 +211,11 @@ Write tests **first**, then implement. All core logic is covered by table-driven
    - Placeholder in answer text
    - Multiple placeholders (future-proofing)
    - Unsupported placeholder (should fail)
-   - Escaped braces (implementation TBD)
+   - Escaped braces using `{{` and `}}`; unmatched braces fail
    - Unicode strings and grapheme clusters
    - Empty template (should fail)
-   - Length validation after substitution
+   - Rendered length reflects placeholder expansion; Discord limits are
+     validated by the payload layer
 
 ### Phase 2: HTTP client and Discord integration
 

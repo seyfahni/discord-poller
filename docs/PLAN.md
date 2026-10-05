@@ -6,7 +6,7 @@ Status: planning complete; implementation ready to start.
 
 Build a Go command-line program that runs once, posts one native Discord poll using an incoming webhook, then exits. A server-side systemd timer invokes it weekly; manual invocation is also supported. The timer's execution weekday is independent of the poll's target weekday.
 
-Configuration, CLI help, errors, logs, and operational documentation are English. Poll question and answer text are supplied verbatim by the administrator. No locale engine or translation support is required.
+Configuration, CLI help, errors, logs, and operational documentation are English. Poll question and answer text are supplied by the administrator, with `{end_date}` templating available in both question and answer text. No locale engine or translation support is required.
 
 Out of scope: bots, extra message content, mentions, webhook username/avatar overrides, additional placeholders, and duplicate prevention via local state at initial release.
 
@@ -41,7 +41,7 @@ poll:
 - **Same-day threshold**: Go duration string (e.g. `3h`, `2h30m`). Minimum `1h`. Required setting.
 - **Date format**: Go reference-time layout (e.g. `02.01.2006`, `2006-01-02`, `Monday, 02 January 2006`). Use numeric output only; English dynamic names (Monday, January) are acceptable. Required setting.
 - **Question**: Template string supporting `{end_date}` placeholder. Required setting.
-- **Answers**: At least one answer. Text is required; emoji is optional. Required setting (non-empty array).
+- **Answers**: At least one answer. Text is required and supports the `{end_date}` placeholder; emoji is optional. Required setting (non-empty array).
 - **Multiselect**: Boolean. Required setting.
 
 Answer text is required. Emoji is optional. Proposed support: Unicode emoji and custom Discord emoji notation (`<:name:id>` and `<a:name:id>`), mapped to the appropriate API fields. Do not equate one emoji with one Unicode code point: combined emoji sequences exist.
@@ -93,11 +93,11 @@ For an 18:00 target, nominal expiry is strictly after 17:00 and no later than 18
 - Log the actual returned expiry and report any deviation from the intended window. Do not repost to correct it, since that would create duplicates.
 - Best-effort expiry with explicit reporting is the acceptable approach.
 
-`{end_date}` refers to the selected configured deadline in the configured timezone, not Discord's rounded actual expiry. Format it with `poll.date_format` before rendering the question.
+`{end_date}` refers to the selected configured deadline in the configured timezone, not Discord's rounded actual expiry. Format it with `poll.date_format` before rendering the question and answers.
 
 ## Template design
 
-Initially support only `{end_date}` in the question. Use an isolated placeholder resolver so additional named placeholders can be introduced later without rewriting scheduling or payload code. Reject unsupported placeholders with a clear error. Answer texts remain literal initially. Define/document brace escaping during implementation.
+Initially support only `{end_date}` in the question and answer texts. Use an isolated placeholder resolver so additional named placeholders can be introduced later without rewriting scheduling or payload code. Reject unsupported placeholders with a clear error. Define/document brace escaping during implementation.
 
 ## Discord integration and validation
 

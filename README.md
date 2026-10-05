@@ -3,8 +3,9 @@
 Discord Poller is a Go project for creating a configurable native Discord poll
 through an incoming webhook. The current implementation provides strict YAML
 configuration loading and validation, deadline selection, poll-duration
-calculation, and JSON logging. Poll creation, CLI, and deployment are documented
-plans and are not implemented yet.
+calculation, template rendering for question and answer text, and JSON logging.
+Poll creation, CLI, and deployment are documented plans and are not implemented
+yet.
 
 ## Requirements
 
@@ -46,5 +47,6 @@ implemented.
 - `internal/config`: user and system configuration models, validation, and
   strict YAML loaders
 - `internal/schedule`: timezone-aware deadline selection and duration math
+- `internal/template`: `{end_date}` substitution and brace escaping
 - `internal/logger`: zap logger setup
 - `docs/`: documentation and concepts
