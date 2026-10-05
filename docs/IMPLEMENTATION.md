@@ -9,7 +9,36 @@ question and answer text.
 For templates, `{{` and `}}` produce literal braces. Reject unmatched braces
 and unsupported placeholders. Render `{end_date}` in both question and answer
 text; keep Discord-specific rendered-length validation in the payload layer.
+Completed: Discord poll payloads and webhook HTTP client.
 Next: CLI composition and dry-run behavior.
+
+### Discord integration slice
+
+Implement one file at a time, test-first:
+
+1. `internal/discord/discord_test.go`: cover payload constraints and JSON shape;
+   Unicode/custom emoji mapping; webhook URL validation; GET validation;
+   `wait=true` poll creation and response expiry; 429 retries with numeric
+   `Retry-After`; missing, invalid, over-budget, and exhausted rate limits;
+   context cancellation; API rejection; server/network ambiguity without retry;
+   and credential redaction.
+2. `internal/discord/payload.go`: construct and validate the poll request
+   before network activity. Count Unicode code points (the chosen assumption
+   because Discord does not publish the counting unit), reject invalid UTF-8,
+   enforce question/answer/duration limits, and map Discord emoji fields.
+3. `internal/discord/response.go`: decode only the created message ID and
+   optional poll expiry.
+4. `internal/discord/client.go`: validate HTTPS webhook URL shape, perform
+   authenticated-by-token GET validation, POST with `wait=true`, and retry only
+   HTTP 429 responses within configured retry and time budgets. Require a valid
+   numeric `Retry-After`; missing or invalid values fail without a guessed
+   delay. Never retry connection failures or server errors for poll creation.
+   Redact the webhook URL/token from errors and do not follow redirects.
+
+Use injectable HTTP clients and context-aware rate-limit waiting for tests.
+Return the created expiry to the caller; the CLI will log it and report window
+deviations without reposting. Dry-run performs webhook GET validation but never
+sends the poll-creation POST.
 
 ## Overview
 
@@ -226,23 +255,21 @@ Write tests **first**, then implement. All core logic is covered by table-driven
 1. **discord_test.go** (~25 test cases):
    - Successful poll creation (HTTP 200, with `wait=true`)
    - Successful poll creation with `poll.expiry` returned
-   - Missing `Retry-After` header, immediate success
-   - HTTP 429 with `Retry-After: 5` (should retry)
+   - Single-answer poll acceptance at payload level
+   - HTTP 429 with valid `Retry-After` (should retry)
+   - Missing or invalid `Retry-After` (fail without guessed delay)
    - HTTP 429 exceeding max wait budget (should fail with code 4)
    - Exhausted retries (should fail with code 4)
-   - Unsupported HTTP 429 format (fall back to max wait exceeded)
+   - Context cancellation during rate-limit wait
    - HTTP 400 (invalid payload; fail with code 4)
    - HTTP 401 (invalid token; fail with code 4)
-   - HTTP 500 (server error; fail with code 3)
-   - Network timeout (fail with code 3)
-   - Connection refused (fail with code 3)
-   - POST sent but no response received (ambiguous; fail with code 3)
-   - Expiry in returned response (extract and log)
-   - Expiry outside intended window (log warning, succeed with code 0)
-   - Credential redaction in error messages
+   - HTTP 5xx or network error (ambiguous; fail with code 3 and do not retry)
+   - Expiry in returned response (extract and return to caller)
+   - Missing expiry in response (report as unavailable)
+   - Webhook URL/token redaction in errors
    - Webhook GET validation success
    - Webhook GET validation failure (invalid token)
-   - Rate limit applied to GET request
+   - 429 handling applies to GET and POST
    - Dry-run skips POST, allows GET
 
 ### Testing tools
@@ -301,8 +328,8 @@ func SelectDeadline(now time.Time, tz *time.Location, targetWeekday time.Weekday
 - All HTTP mock tests pass.
 - Retry-After header respected and parsed correctly.
 - Ambiguous outcomes (POST sent but no response) fail with code 3, not retried.
-- Expiry logged when returned; deviation reported.
-- Dry-run calls GET webhook validation, but skips POST.
+- Returned expiry is available to the caller; no corrective repost is made.
+- Webhook validation uses GET; poll creation uses POST with `wait=true`.
 
 ### Phase 3: Integration and CLI
 

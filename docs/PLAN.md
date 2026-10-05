@@ -108,7 +108,7 @@ Use the native webhook `poll` payload, without extra message content. API docume
 - Optional answer emoji: Unicode emoji through `name`, custom emoji through `id`.
 - Configurable `allow_multiselect`.
 
-Project policy: require a nonempty rendered question, 1–10 nonempty answers, and duration of 1–768 hours. Confirm the single-answer case in integration testing; the documented upper limit does not establish a lower limit. Validate text using Unicode-aware counting rather than byte lengths, and verify Discord's counting semantics during implementation.
+Project policy: require a nonempty rendered question, 1–10 nonempty answers, and duration of 1–768 hours. Confirm the single-answer case in integration testing; the documented upper limit does not establish a lower limit. Count text using Unicode code points rather than bytes or grapheme clusters. Discord's public documentation does not specify the unit used for its character limits, so code-point counting is the selected compatibility assumption.
 
 Perform configuration and rendered-payload validation before any network request. Validate webhook URL shape and HTTPS. Never log the webhook URL/token, including errors emitted by the HTTP client; sanitize error details.
 
