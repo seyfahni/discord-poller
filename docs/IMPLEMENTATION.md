@@ -1,6 +1,10 @@
 # Discord Poller — Detailed Implementation Plan
 
-Status: ready for implementation.
+Status: implementation in progress.
+
+Completed: configuration models, validation and strict YAML loaders;
+scheduling deadline selection and duration calculations.
+Next: template rendering.
 
 ## Overview
 
@@ -451,4 +455,3 @@ The plan is ready for implementation. Proceed to Phase 1: configuration, schedul
 4. Write and implement `config/validation_test.go`.
 5. Write and implement `template/template_test.go`.
 6. Continue to Phase 2 (HTTP client).
-
