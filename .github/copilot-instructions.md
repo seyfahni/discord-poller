@@ -8,6 +8,7 @@
 - Follow the plan when writing code.
 - Keep code short and concise.
 - Follow SOLID principles amd write DRY code within reason.
+- Use library functions whenever possible to reduce not-invented-here syndrome code.
 - Develop test-driven:
   1. List scenarios for the new feature
   2. Write a test for an item on the list
@@ -16,8 +17,7 @@
   5. All tests should now pass
   6. Refactor as needed while ensuring all tests continue to pass
   7. Repeat
-- and ensure that your tests cover relevant edge cases instead of just
-  the happy path.
+- Ensure that tests cover both the happy path and all relevant edge cases.
 - If possible and available, use IDE built-in functionality over executing terminal commands.
 - If it exists, keep the `README.md` up-to-date.
   It should be concise and tell developers and users about the project and common workflows.
