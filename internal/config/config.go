@@ -4,9 +4,9 @@ import "time"
 
 // UserConfig represents the user-supplied configuration for the poll.
 type UserConfig struct {
-	WebhookURLEnv string       `yaml:"webhook_url_env"`
-	Target        TargetConfig `yaml:"target"`
-	Poll          PollConfig   `yaml:"poll"`
+	WebhookURL string       `yaml:"webhook_url"`
+	Target     TargetConfig `yaml:"target"`
+	Poll       PollConfig   `yaml:"poll"`
 }
 
 // TargetConfig specifies the target schedule.

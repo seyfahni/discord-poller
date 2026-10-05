@@ -263,6 +263,41 @@ func TestRateLimitRetry(t *testing.T) {
 	}
 }
 
+func TestCreatePollRebuildsPayloadAfterRateLimit(t *testing.T) {
+	var requestCount atomic.Int32
+	var firstDuration, secondDuration int
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var payload Payload
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+		switch requestCount.Add(1) {
+		case 1:
+			firstDuration = payload.Poll.Duration
+			w.Header().Set("Retry-After", "0")
+			w.WriteHeader(http.StatusTooManyRequests)
+		case 2:
+			secondDuration = payload.Poll.Duration
+			_, _ = fmt.Fprint(w, `{"id":"987654321"}`)
+		}
+	}))
+	defer server.Close()
+
+	buildCount := 0
+	client := newTestClient(t, server.Client(), 1, time.Second)
+	message, err := client.CreatePollWithPayload(context.Background(), webhookURL(server.URL), func() (Payload, error) {
+		buildCount++
+		duration := 24
+		if buildCount == 2 {
+			duration = 23
+		}
+		return BuildPayload("Question", []Answer{{Text: "Yes"}}, duration, false)
+	})
+	require.NoError(t, err)
+	require.NotNil(t, message)
+	assert.Equal(t, 2, buildCount)
+	assert.Equal(t, 24, firstDuration)
+	assert.Equal(t, 23, secondDuration)
+}
+
 func TestRateLimitWaitBudgetIsCumulative(t *testing.T) {
 	var requestCount atomic.Int32
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

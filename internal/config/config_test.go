@@ -9,7 +9,7 @@ import (
 
 func TestUserConfigYAML(t *testing.T) {
 	data := `
-webhook_url_env: DISCORD_WEBHOOK_URL
+webhook_url: https://discord.com/api/webhooks/123456789/secret-token
 target:
   timezone: Europe/Berlin
   weekday: Thursday
@@ -28,8 +28,8 @@ poll:
 	if err := yaml.Unmarshal([]byte(data), &cfg); err != nil {
 		t.Fatal(err)
 	}
-	if cfg.WebhookURLEnv != "DISCORD_WEBHOOK_URL" {
-		t.Errorf("unexpected webhook environment variable: %q", cfg.WebhookURLEnv)
+	if cfg.WebhookURL != "https://discord.com/api/webhooks/123456789/secret-token" {
+		t.Errorf("unexpected webhook URL: %q", cfg.WebhookURL)
 	}
 	wantTarget := TargetConfig{
 		Timezone: "Europe/Berlin", Weekday: "Thursday", Time: "18:00",

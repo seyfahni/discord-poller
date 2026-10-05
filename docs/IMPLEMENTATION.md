@@ -4,13 +4,22 @@ Status: implementation in progress.
 
 Completed: configuration models, validation and strict YAML loaders;
 scheduling deadline selection and duration calculations; template rendering in
-question and answer text.
+question and answer text; Discord poll payloads and webhook HTTP client; CLI
+composition and dry-run behavior.
 
 For templates, `{{` and `}}` produce literal braces. Reject unmatched braces
 and unsupported placeholders. Render `{end_date}` in both question and answer
 text; keep Discord-specific rendered-length validation in the payload layer.
-Completed: Discord poll payloads and webhook HTTP client.
-Next: CLI composition and dry-run behavior.
+Next: examples, JSON schemas, systemd deployment files, and CI.
+
+### Webhook URL configuration adjustment
+
+Store the required `webhook_url` directly in the user YAML instead of naming an
+environment variable. Keep URL-shape validation in the Discord layer and never
+log the URL or token. Update config validation/loader tests, CLI tests for
+missing, blank, and invalid URLs, the example config, README, and both project
+plans. Verify the configured URL is passed to the Discord client while
+credentials remain absent from logs and errors.
 
 ### Discord integration slice
 
@@ -49,9 +58,11 @@ This document breaks down the implementation into concrete phases, testing strat
 ### User configuration vs. System configuration
 
 **User configuration** (`user-config.yaml`): Poll content, target timing, timezone.  
-**System configuration** (`system-config.yaml`): Logging, HTTP timeouts, retry behavior, credential sources.
+**System configuration** (`system-config.yaml`): Logging, HTTP timeouts, and retry behavior.
 
-Both are required. Users manage user-config; operators maintain system-config. Environment variables override both (e.g., `DISCORD_WEBHOOK_URL`, `LOG_LEVEL`).
+Both are required. Users manage user-config; operators maintain system-config.
+The webhook URL is stored in user-config, which must be access-restricted and
+must not be committed.
 
 ### User configuration schema
 
@@ -60,7 +71,7 @@ File: `user-config.yaml`
 All fields are required. No defaults. Unknown keys are rejected.
 
 ```yaml
-webhook_url_env: DISCORD_WEBHOOK_URL
+webhook_url: https://discord.com/api/webhooks/ID/TOKEN
 
 target:
   timezone: Europe/Berlin
@@ -81,7 +92,8 @@ poll:
 ```
 
 **Validation rules**:
-- `webhook_url_env`: nonempty string, matches `^[A-Z_][A-Z0-9_]*$` (valid env var name).
+- `webhook_url`: nonempty string; the CLI validates HTTPS Discord webhook URL
+  shape before any network request. Never log its value.
 - `target.timezone`: valid IANA timezone string (parsed and validated by Go's `time.LoadLocation`).
 - `target.weekday`: one of `Monday`, `Tuesday`, ..., `Sunday` (case-sensitive).
 - `target.time`: valid 24-hour time in `HH:MM` format; both HH and MM are required integers.
@@ -233,7 +245,7 @@ Write tests **first**, then implement. All core logic is covered by table-driven
    - Question length validation (post-render)
    - Too few/too many answers
    - Invalid emoji format
-   - Invalid webhook_url_env name
+   - Missing or blank configured webhook URL
 
 3. **template_test.go** (~20 test cases):
    - Single placeholder `{end_date}` in question
@@ -312,7 +324,8 @@ func SelectDeadline(now time.Time, tz *time.Location, targetWeekday time.Weekday
 - All table-driven tests pass.
 - Config with unknown keys is rejected.
 - All validation rules enforced.
-- `--dry-run` prints logs of deadline selection, template rendering, and payload validation without network calls.
+- Configuration can be loaded strictly, scheduled, rendered, and validated
+  without any network requests.
 
 ### Phase 2: Discord HTTP client
 
@@ -331,26 +344,61 @@ func SelectDeadline(now time.Time, tz *time.Location, targetWeekday time.Weekday
 - Returned expiry is available to the caller; no corrective repost is made.
 - Webhook validation uses GET; poll creation uses POST with `wait=true`.
 
-### Phase 3: Integration and CLI
+### Phase 3: Integration and CLI (implemented)
 
-**Deliverable**: Compose all modules, error handling, exit codes, systemd readiness.
+**Deliverable**: Compose all modules, implement error handling and exit codes,
+and document CLI development and invocation.
 
 **Files**:
 - `cmd/discord-poller/main.go` (complete)
-- `README.md` (build, install, usage, exit codes, troubleshooting)
+- `README.md` (development commands, build, CLI usage, exit codes)
+
+**Success criteria**:
+- Exit code contract enforced.
+- Logs contain no secrets.
+- Dry-run and real execution paths work.
+- README documents development commands and CLI invocation.
+
+### Phase 4: Deployment and CI
+
+**Deliverable**: Package examples, schemas, systemd deployment files, and
+automated validation.
+
+**Files**:
 - `docs/examples/user-config.yaml`
 - `docs/examples/system-config.yaml`
 - `schemas/user-config.schema.json`
 - `schemas/system-config.schema.json`
 - `deployments/discord-poller.service`
 - `deployments/discord-poller.timer`
+- `.github/workflows/ci.yml`
 
 **Success criteria**:
-- Exit code contract enforced.
-- Logs contain no secrets.
-- Dry-run and real execution paths work.
-- README documents build commands, deployment, configuration.
+- README documents installation, deployment, configuration, and troubleshooting.
 - Example configs satisfy JSON schemas.
+- CI runs tests, vet, build, and schema/example consistency checks.
+
+### CLI composition slice
+
+Implement CLI tests first, then `cmd/discord-poller/main.go`. The CLI accepts
+explicit paths for required user and system configuration, plus `--dry-run`.
+It loads and validates both configurations, initializes the configured logger,
+uses the webhook URL from user configuration,
+selects the target deadline, renders question and answer templates, and
+validates the payload before making a network request.
+
+Both dry-run and normal execution validate the webhook with GET. Dry-run
+requires the configured webhook credential and network access, and logs
+the selected deadline, requested duration, and complete validated poll
+payload, but never issues the poll-creation POST. Normal execution posts once,
+then logs the message ID, requested duration, and returned expiry when
+available. It reports an expiry outside the intended window as a warning and
+never reposts.
+
+Test usage and missing configuration paths; config and environment errors;
+deadline, template, and payload validation; GET-only dry-run; successful GET
+and POST; returned and missing expiry; expiry-window deviation; categorized
+exit codes; cancellation; and absence of webhook secrets in logs and errors.
 
 ## Key implementation decisions
 
@@ -428,20 +476,22 @@ return error "retries exhausted"
 
 ### Dry-run behavior
 
-1. Load both configs and environment variables.
+1. Load both configs, including the webhook URL from the user config.
 2. Validate all configuration.
 3. Select deadline and render templates.
-4. Perform webhook GET validation (validate credentials).
+4. Perform webhook GET validation (validate credentials; network access is
+   required).
 5. Construct full payload (validated but not sent).
-6. Log all the above: "Configuration loaded", "Webhook credential validated", "Target deadline selected", "Payload constructed (dry-run, not sent)".
+6. Log all the above, including the validated poll payload, without logging
+   the webhook URL or token.
 7. Exit with code 0 (success). Do not call POST.
 
 ### Credential redaction
 
-Remove webhook URL and token from all error messages and logs:
-- Before logging, replace the full URL with `***REDACTED***`.
-- If an error message contains `token=...`, replace with `token=***REDACTED***`.
-- Implement a sanitizer function in `internal/logger/logger.go`.
+Never include the webhook URL, token, or raw HTTP response body in client
+errors or CLI logs. The Discord client returns categorized errors that expose
+only the operation and HTTP status, and the CLI logs the configured variable
+name rather than its value.
 
 ## Documentation
 
@@ -476,15 +526,8 @@ Run on every push:
 
 No secrets required.
 
-## Questions for clarification (none at this stage; all decisions incorporated)
-
-The plan is ready for implementation. Proceed to Phase 1: configuration, scheduling, and templating logic.
-
 ## Next steps
 
-1. Create the repository structure (directories, `go.mod`, initial files).
-2. Write table-driven tests for `schedule_test.go` (first TDD phase).
-3. Implement `schedule.go` to pass all tests.
-4. Write and implement `config/validation_test.go`.
-5. Write and implement `template/template_test.go`.
-6. Continue to Phase 2 (HTTP client).
+1. Add example configuration files, JSON schemas, and systemd deployment units.
+2. Add CI for tests, vet, build, and schema/example consistency checks.
+3. Document installation, deployment, and troubleshooting in the README.

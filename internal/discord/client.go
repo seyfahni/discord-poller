@@ -172,10 +172,24 @@ func (client *Client) ValidateWebhook(ctx context.Context, webhookURL string) (*
 
 // CreatePoll submits a validated poll and returns the created message response.
 func (client *Client) CreatePoll(ctx context.Context, webhookURL string, payload Payload) (*CreatedMessage, error) {
+	return client.CreatePollWithPayload(ctx, webhookURL, func() (Payload, error) {
+		return payload, nil
+	})
+}
+
+// CreatePollWithPayload builds a fresh payload before each HTTP 429 retry.
+func (client *Client) CreatePollWithPayload(ctx context.Context, webhookURL string, buildPayload func() (Payload, error)) (*CreatedMessage, error) {
 	if ctx == nil {
 		return nil, clientError(ErrConfiguration, "poll creation", 0, nil)
 	}
+	if buildPayload == nil {
+		return nil, clientError(ErrConfiguration, "poll creation", 0, nil)
+	}
 	if _, err := parseWebhookURL(webhookURL, client.allowCustomHost); err != nil {
+		return nil, clientError(ErrConfiguration, "poll creation", 0, nil)
+	}
+	payload, err := buildPayload()
+	if err != nil {
 		return nil, clientError(ErrConfiguration, "poll creation", 0, nil)
 	}
 	if err := validatePayload(payload); err != nil {
@@ -194,7 +208,22 @@ func (client *Client) CreatePoll(ctx context.Context, webhookURL string, payload
 	query.Set("wait", "true")
 	parsed.RawQuery = query.Encode()
 
-	response, err := client.do(ctx, http.MethodPost, parsed.String(), body, "poll creation")
+	firstBody := true
+	buildBody := func() ([]byte, error) {
+		if firstBody {
+			firstBody = false
+			return body, nil
+		}
+		payload, err := buildPayload()
+		if err != nil {
+			return nil, err
+		}
+		if err := validatePayload(payload); err != nil {
+			return nil, err
+		}
+		return json.Marshal(payload)
+	}
+	response, err := client.doWithBody(ctx, http.MethodPost, parsed.String(), buildBody, "poll creation")
 	if err != nil {
 		return nil, err
 	}
@@ -215,8 +244,18 @@ func (client *Client) CreatePoll(ctx context.Context, webhookURL string, payload
 }
 
 func (client *Client) do(ctx context.Context, method, endpoint string, body []byte, operation string) (*http.Response, error) {
+	return client.doWithBody(ctx, method, endpoint, func() ([]byte, error) {
+		return body, nil
+	}, operation)
+}
+
+func (client *Client) doWithBody(ctx context.Context, method, endpoint string, buildBody func() ([]byte, error), operation string) (*http.Response, error) {
 	var waited time.Duration
 	for attempt := 0; ; attempt++ {
+		body, err := buildBody()
+		if err != nil {
+			return nil, clientError(ErrConfiguration, operation, 0, nil)
+		}
 		request, err := http.NewRequestWithContext(ctx, method, endpoint, bytes.NewReader(body))
 		if err != nil {
 			return nil, clientError(ErrConfiguration, operation, 0, nil)

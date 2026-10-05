@@ -9,7 +9,7 @@ import (
 
 func validUserConfig() UserConfig {
 	return UserConfig{
-		WebhookURLEnv: "DISCORD_WEBHOOK_URL",
+		WebhookURL: "https://discord.com/api/webhooks/123456789/secret-token",
 		Target: TargetConfig{
 			Timezone:         "Europe/Berlin",
 			Weekday:          "Thursday",
@@ -43,13 +43,9 @@ func TestValidateUserConfig(t *testing.T) {
 		wantErr     bool
 		errContains string
 	}{
-		{name: "webhook env standard", input: func() UserConfig { c := validUserConfig(); c.WebhookURLEnv = "DISCORD_WEBHOOK_URL"; return c }()},
-		{name: "webhook env custom", input: func() UserConfig { c := validUserConfig(); c.WebhookURLEnv = "MY_WEBHOOK"; return c }()},
-		{name: "webhook env with digits", input: func() UserConfig { c := validUserConfig(); c.WebhookURLEnv = "WEBHOOK_123"; return c }()},
-		{name: "webhook env empty", input: func() UserConfig { c := validUserConfig(); c.WebhookURLEnv = ""; return c }(), wantErr: true, errContains: "webhook_url_env"},
-		{name: "webhook env lowercase", input: func() UserConfig { c := validUserConfig(); c.WebhookURLEnv = "webhook_url"; return c }(), wantErr: true, errContains: "webhook_url_env"},
-		{name: "webhook env special characters", input: func() UserConfig { c := validUserConfig(); c.WebhookURLEnv = "WEBHOOK-URL"; return c }(), wantErr: true, errContains: "webhook_url_env"},
-		{name: "webhook env starts with number", input: func() UserConfig { c := validUserConfig(); c.WebhookURLEnv = "0WEBHOOK"; return c }(), wantErr: true, errContains: "webhook_url_env"},
+		{name: "webhook URL valid", input: validUserConfig()},
+		{name: "webhook URL empty", input: func() UserConfig { c := validUserConfig(); c.WebhookURL = ""; return c }(), wantErr: true, errContains: "webhook_url"},
+		{name: "webhook URL whitespace", input: func() UserConfig { c := validUserConfig(); c.WebhookURL = "  "; return c }(), wantErr: true, errContains: "webhook_url"},
 
 		{name: "timezone Europe Berlin", input: func() UserConfig { c := validUserConfig(); c.Target.Timezone = "Europe/Berlin"; return c }()},
 		{name: "timezone UTC", input: func() UserConfig { c := validUserConfig(); c.Target.Timezone = "UTC"; return c }()},

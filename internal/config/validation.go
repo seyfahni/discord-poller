@@ -9,16 +9,13 @@ import (
 	"unicode/utf8"
 )
 
-var (
-	webhookURLEnvPattern = regexp.MustCompile(`^[A-Z_][A-Z0-9_]*$`)
-	customEmojiPattern   = regexp.MustCompile(`^<a?:\w+:\d+>$`)
-)
+var customEmojiPattern = regexp.MustCompile(`^<a?:\w+:\d+>$`)
 
 func ValidateUserConfig(cfg *UserConfig) error {
 	if cfg == nil {
 		return fmt.Errorf("user config must not be nil")
 	}
-	if err := validateWebhookURLEnv(cfg.WebhookURLEnv); err != nil {
+	if err := validateWebhookURL(cfg.WebhookURL); err != nil {
 		return err
 	}
 	if err := validateTargetConfig(cfg.Target); err != nil {
@@ -37,9 +34,9 @@ func ValidateSystemConfig(cfg *SystemConfig) error {
 	return validateHTTPConfig(cfg.HTTP)
 }
 
-func validateWebhookURLEnv(env string) error {
-	if env == "" || !webhookURLEnvPattern.MatchString(env) {
-		return fmt.Errorf("webhook_url_env must be a non-empty uppercase environment variable name matching %s", webhookURLEnvPattern)
+func validateWebhookURL(webhookURL string) error {
+	if strings.TrimSpace(webhookURL) == "" {
+		return fmt.Errorf("webhook_url must not be empty")
 	}
 	return nil
 }

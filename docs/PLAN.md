@@ -1,6 +1,6 @@
 # Discord Poller — Implementation Plan
 
-Status: planning complete; implementation ready to start.
+Status: implementation in progress.
 
 ## Scope
 
@@ -12,10 +12,12 @@ Out of scope: bots, extra message content, mentions, webhook username/avatar ove
 
 ## Configuration proposal
 
-Use a strict YAML configuration file. Reject unknown keys to catch mistakes. Read the webhook URL from the named environment variable rather than embedding a secret in version control.
+Use a strict YAML configuration file. Reject unknown keys to catch mistakes.
+Store the webhook URL in the user configuration and protect that file as a
+secret; never commit it to version control.
 
 ```yaml
-webhook_url_env: DISCORD_WEBHOOK_URL
+webhook_url: https://discord.com/api/webhooks/ID/TOKEN
 
 target:
   timezone: Europe/Berlin
@@ -118,7 +120,10 @@ Use an HTTP client with explicit timeouts and request cancellation. Respect Disc
 
 Proposed CLI: `discord-poller --config /etc/discord-poller/config.yaml`.
 
-Add `--dry-run` to validate, select the target, and print payload plus timing calculations without sending or exposing credentials. Dry-run should not require the webhook secret.
+Add `--dry-run` to validate, select the target, and report payload and timing
+calculations without sending or exposing credentials. Dry-run validates the
+webhook with a GET request, so it requires the configured webhook secret and
+network access, but it never sends the poll-creation POST.
 
 Suggested components:
 - `cmd/discord-poller`: CLI and composition.
@@ -163,7 +168,10 @@ AccuracySec=1min
 WantedBy=timers.target
 ```
 
-Provide a oneshot service unit, example timer configuration, a dedicated unprivileged account, read-only configuration directory, separately stored webhook environment secret (e.g., in a systemd EnvironmentFile), service hardening compatible with outbound networking, and installation/verification instructions.
+Provide a oneshot service unit, example timer configuration, a dedicated
+unprivileged account, a read-only configuration directory containing the
+webhook URL, service hardening compatible with outbound networking, and
+installation/verification instructions.
 
 ## Duplicate handling
 
@@ -191,18 +199,21 @@ Future releases may add optional idempotency tokens or local state if required.
 - Answers with no emoji, Unicode sequences, and custom emoji IDs; multiselect on/off.
 - HTTP tests with a local test server: success, API errors, rate limits, timeout/ambiguous outcomes, and token redaction.
 - Verify returned expiry handling and no corrective reposts.
-- Dry-run makes no network call and needs no webhook credential.
+- Dry-run validates the webhook with GET, requires its credential, and never
+  sends the poll-creation POST.
 - Document and manually test deployment with the systemd timer.
 
 ## Delivery phases
 
 1. ✅ Planning complete with all decisions clarified.
-2. Implement Go CLI, scheduling/config/template logic, payload construction, and unit tests.
-3. Implement webhook client and HTTP tests.
+2. ✅ Implement CLI, scheduling/config/template logic, payload construction,
+   and unit tests.
+3. ✅ Implement webhook client and HTTP tests.
 4. Add example configuration, systemd units, build/install instructions, and CI.
 5. Perform an opt-in live test with a user-provided webhook secret; never commit that secret.
 
-Implementation should be submitted for review only after the user asks to start it.
+Continue implementation incrementally according to the remaining delivery
+phases.
 
 ## Primary references
 

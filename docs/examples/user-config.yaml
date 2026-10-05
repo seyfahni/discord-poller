@@ -1,4 +1,4 @@
-webhook_url_env: DISCORD_WEBHOOK_URL
+webhook_url: https://discord.com/api/webhooks/ID/TOKEN
 
 target:
   timezone: Europe/Berlin

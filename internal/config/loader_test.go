@@ -16,6 +16,7 @@ func TestLoadUserConfigExample(t *testing.T) {
 	cfg, err := LoadUserConfig(filepath.Join("..", "..", "docs", "examples", "user-config.yaml"))
 	require.NoError(t, err)
 	want := validUserConfig()
+	want.WebhookURL = "https://discord.com/api/webhooks/ID/TOKEN"
 	want.Target.SameDayThreshold = 3 * time.Hour
 	want.Poll.Answers = []AnswerConfig{
 		{Text: "I'm in", Emoji: "✅"},
@@ -49,7 +50,7 @@ func TestLoadUserConfigErrors(t *testing.T) {
 		{name: "malformed YAML", yaml: "poll: [", errContains: "failed to parse user config"},
 		{name: "invalid duration", yaml: strings.Replace(valid, "3h", "not-a-duration", 1), errContains: "failed to parse user config"},
 		{name: "empty file", yaml: "", errContains: "failed to parse user config"},
-		{name: "missing required fields", yaml: "{}", errContains: "user config validation failed: webhook_url_env"},
+		{name: "missing required fields", yaml: "{}", errContains: "user config validation failed: webhook_url"},
 		{name: "invalid threshold", yaml: strings.Replace(valid, "3h", "30m", 1), errContains: "user config validation failed: target.same_day_threshold"},
 		{name: "too many answers", yaml: valid + strings.Repeat("    - text: Extra\n", 8), errContains: "user config validation failed: poll.answers"},
 	} {
