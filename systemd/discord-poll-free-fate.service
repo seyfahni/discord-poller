@@ -1,0 +1,31 @@
+[Unit]
+Description=Create a Free-Fate Discord poll
+
+[Service]
+Type=oneshot
+DynamicUser=yes
+LoadCredentialEncrypted=discord_webhook_url:/etc/credstore.encrypted/discord-webhook-free-fate
+ExecStart=/bin/bash /server/discord/poll/create.sh
+
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateDevices=yes
+PrivateMounts=yes
+PrivateTmp=yes
+PrivateUsers=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectSystem=strict
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+UMask=0077

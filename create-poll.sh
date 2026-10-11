@@ -41,9 +41,25 @@ if [[ "$date_version" != *"GNU coreutils"* ]]; then
 fi
 
 if [[ -z "${DISCORD_WEBHOOK_URL+x}" ]]; then
-    printf 'Error: DISCORD_WEBHOOK_URL is unset; set it to a non-empty incoming webhook URL.\n' >&2
-    exit 1
-elif [[ -z "$DISCORD_WEBHOOK_URL" ]]; then
+    if [[ -z "${CREDENTIALS_DIRECTORY:-}" ]]; then
+        printf 'Error: DISCORD_WEBHOOK_URL is unset and no systemd credentials directory is available.\n' >&2
+        exit 1
+    fi
+
+    readonly webhook_credential_file="${CREDENTIALS_DIRECTORY}/discord_webhook_url"
+    if [[ ! -r "$webhook_credential_file" ]]; then
+        printf 'Error: systemd webhook credential is unavailable or unreadable: %s\n' \
+            "$webhook_credential_file" >&2
+        exit 1
+    fi
+    if ! DISCORD_WEBHOOK_URL="$(<"$webhook_credential_file")"; then
+        printf 'Error: could not read the systemd webhook credential: %s\n' \
+            "$webhook_credential_file" >&2
+        exit 1
+    fi
+fi
+
+if [[ -z "$DISCORD_WEBHOOK_URL" ]]; then
     printf 'Error: DISCORD_WEBHOOK_URL is set but empty; set it to a non-empty incoming webhook URL.\n' >&2
     exit 1
 fi
