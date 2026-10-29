@@ -209,7 +209,8 @@ Future releases may add optional idempotency tokens or local state if required.
 2. ✅ Implement CLI, scheduling/config/template logic, payload construction,
    and unit tests.
 3. ✅ Implement webhook client and HTTP tests.
-4. Add example configuration, systemd units, build/install instructions, and CI.
+4. ✅ Add example configuration, systemd units, build/install instructions,
+   and CI.
 5. Perform an opt-in live test with a user-provided webhook secret; never commit that secret.
 
 Continue implementation incrementally according to the remaining delivery

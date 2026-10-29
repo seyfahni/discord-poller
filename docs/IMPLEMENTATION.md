@@ -1,6 +1,6 @@
 # Discord Poller — Detailed Implementation Plan
 
-Status: implementation in progress.
+Status: planned implementation phases 1–4 complete.
 
 Completed: configuration models, validation and strict YAML loaders;
 scheduling deadline selection and duration calculations; template rendering in
@@ -10,12 +10,12 @@ composition and dry-run behavior.
 For templates, `{{` and `}}` produce literal braces. Reject unmatched braces
 and unsupported placeholders. Render `{end_date}` in both question and answer
 text; keep Discord-specific rendered-length validation in the payload layer.
-Next: examples, JSON schemas, systemd deployment files, and CI.
+Next: opt-in live testing with a user-provided webhook credential.
 
 ### Webhook URL configuration adjustment
 
-Store the required `webhook_url` directly in the user YAML instead of naming an
-environment variable. Keep URL-shape validation in the Discord layer and never
+Store the required `webhook_url` directly in the user YAML instead of naming a
+separate credential source. Keep URL-shape validation in the Discord layer and never
 log the URL or token. Update config validation/loader tests, CLI tests for
 missing, blank, and invalid URLs, the example config, README, and both project
 plans. Verify the configured URL is passed to the Discord client while
@@ -359,7 +359,7 @@ and document CLI development and invocation.
 - Dry-run and real execution paths work.
 - README documents development commands and CLI invocation.
 
-### Phase 4: Deployment and CI
+### Phase 4: Deployment and CI (implemented)
 
 **Deliverable**: Package examples, schemas, systemd deployment files, and
 automated validation.
@@ -490,8 +490,7 @@ return error "retries exhausted"
 
 Never include the webhook URL, token, or raw HTTP response body in client
 errors or CLI logs. The Discord client returns categorized errors that expose
-only the operation and HTTP status, and the CLI logs the configured variable
-name rather than its value.
+only the operation and HTTP status; the CLI logs no credential-derived data.
 
 ## Documentation
 
@@ -528,6 +527,6 @@ No secrets required.
 
 ## Next steps
 
-1. Add example configuration files, JSON schemas, and systemd deployment units.
-2. Add CI for tests, vet, build, and schema/example consistency checks.
-3. Document installation, deployment, and troubleshooting in the README.
+Perform the planned live test only after the user provides and authorizes use
+of a webhook credential. Never commit or retain that credential in the
+repository.

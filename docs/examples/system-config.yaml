@@ -1,7 +1,8 @@
+# Operator-controlled logging and HTTP limits.
 logging:
   level: info
 
 http:
-  request_timeout: 10s
+  request_timeout: "10s"
   max_retries: 2
-  max_rate_limit_wait: 60s
+  max_rate_limit_wait: "60s"

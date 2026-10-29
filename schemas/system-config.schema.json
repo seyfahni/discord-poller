@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/seyfahni/discord-poller/blob/main/schemas/system-config.schema.json",
+  "title": "Discord Poller system configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "logging",
+    "http"
+  ],
+  "properties": {
+    "logging": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "level"
+      ],
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ]
+        }
+      }
+    },
+    "http": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_timeout",
+        "max_retries",
+        "max_rate_limit_wait"
+      ],
+      "properties": {
+        "request_timeout": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Go duration string from 1s through 60s."
+        },
+        "max_retries": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "max_rate_limit_wait": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Go duration string from 1s through 120s."
+        }
+      }
+    }
+  }
+}

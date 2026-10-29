@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/seyfahni/discord-poller/blob/main/schemas/user-config.schema.json",
+  "title": "Discord Poller user configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "webhook_url",
+    "target",
+    "poll"
+  ],
+  "properties": {
+    "webhook_url": {
+      "type": "string",
+      "format": "uri",
+      "minLength": 1,
+      "description": "Credential-bearing Discord webhook URL. Keep this file secret and never commit a real URL."
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "timezone",
+        "weekday",
+        "time",
+        "same_day_threshold"
+      ],
+      "properties": {
+        "timezone": {
+          "type": "string",
+          "minLength": 1
+        },
+        "weekday": {
+          "type": "string",
+          "enum": [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday"
+          ]
+        },
+        "time": {
+          "type": "string",
+          "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+        },
+        "same_day_threshold": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Go duration string of at least 1h."
+        }
+      }
+    },
+    "poll": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "question",
+        "date_format",
+        "allow_multiselect",
+        "answers"
+      ],
+      "properties": {
+        "question": {
+          "type": "string",
+          "minLength": 1
+        },
+        "date_format": {
+          "type": "string",
+          "minLength": 1
+        },
+        "allow_multiselect": {
+          "type": "boolean"
+        },
+        "answers": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "text"
+            ],
+            "properties": {
+              "text": {
+                "type": "string",
+                "minLength": 1
+              },
+              "emoji": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

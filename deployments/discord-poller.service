@@ -1,0 +1,29 @@
+[Unit]
+Description=Create the configured Discord poll
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=discord-poller
+Group=discord-poller
+ExecStart=/usr/local/bin/discord-poller --config /etc/discord-poller/user-config.yaml --system-config /etc/discord-poller/system-config.yaml
+UMask=0077
+NoNewPrivileges=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

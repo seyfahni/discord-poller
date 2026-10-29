@@ -1,10 +1,12 @@
+# Replace ID/TOKEN with the real webhook URL. This file contains a secret:
+# install it with restricted permissions and never commit the real value.
 webhook_url: https://discord.com/api/webhooks/ID/TOKEN
 
 target:
   timezone: Europe/Berlin
   weekday: Thursday
   time: "18:00"
-  same_day_threshold: 3h
+  same_day_threshold: "3h"
 
 poll:
   question: "Who's in on {end_date}?"

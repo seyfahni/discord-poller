@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Discord Poller weekly
+
+[Timer]
+OnCalendar=Thu *-*-* 18:10:00 Europe/Berlin
+Persistent=true
+AccuracySec=1min
+Unit=discord-poller.service
+
+[Install]
+WantedBy=timers.target
